@@ -8,4 +8,5 @@ public class Location : BaseAuditableEntity
     public double Latitude { get; set; }
     public double Longitude { get; set; }
     public List<WeatherData> WeatherData { get; set; } = [];
+    public List<User> Users { get; set; } = [];
 }

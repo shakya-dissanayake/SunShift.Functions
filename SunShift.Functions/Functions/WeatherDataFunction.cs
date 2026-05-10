@@ -1,58 +1,51 @@
 using Microsoft.Azure.Functions.Worker;
+using Microsoft.Azure.Functions.Worker.Http;
+using Microsoft.DurableTask.Client;
 using Microsoft.Extensions.Logging;
-using SunShift.Application.Common.Interfaces.Repositories;
-using SunShift.Domain.Entities;
-using SunShift.Functions.Services;
 
 namespace SunShift.Functions.Functions;
 
-public class WeatherDataFunction(
-    ILocationRepository locationRepository,
-    IWeatherDataRepository weatherDataRepository,
-    IWeatherService weatherService,
-    IUnitOfWork unitOfWork,
-    ILogger<WeatherDataFunction> logger)
+/// <summary>
+/// Entry points that start the daily pipeline orchestrator.
+/// The orchestrator chains: FetchWeatherActivity → GenerateForecastsActivity.
+/// </summary>
+public class DailyPipelineTrigger(ILogger<DailyPipelineTrigger> logger)
 {
-    // Runs daily at 18:30 UTC  →  cron: second minute hour day month day-of-week
-    [Function(nameof(WeatherDataFunction))]
-    public async Task RunAsync([TimerTrigger("0 30 18 * * *")] TimerInfo timerInfo, CancellationToken cancellationToken)
+    /// <summary>Starts the orchestrator every day at midnight Sri Lanka time (00:00 SL = 18:30 UTC).
+    /// Requires WEBSITE_TIME_ZONE = Sri Lanka Standard Time on the Function App.</summary>
+    [Function("DailyPipeline_Timer")]
+    public async Task TimerStartAsync(
+        [TimerTrigger("0 0 0 * * *")] TimerInfo timerInfo,
+        [DurableClient] DurableTaskClient client,
+        CancellationToken cancellationToken)
     {
         logger.LogInformation(
-            "WeatherDataFunction triggered at {Time:O}. IsPastDue: {IsPastDue}",
+            "DailyPipeline_Timer fired at {Time:O}. IsPastDue: {IsPastDue}",
             DateTime.UtcNow, timerInfo.IsPastDue);
 
-        IReadOnlyList<Location> locations = await locationRepository.GetAllAsync(cancellationToken);
+        string instanceId = await client.ScheduleNewOrchestrationInstanceAsync(
+            nameof(DailyPipelineOrchestrator));
 
-        if (locations.Count == 0)
-        {
-            logger.LogInformation("No active locations found. Skipping weather data fetch.");
-            return;
-        }
+        logger.LogInformation("Started orchestrator. InstanceId: {Id}", instanceId);
+    }
 
-        logger.LogInformation("Fetching 7-day forecast for {Count} location(s).", locations.Count);
+    /// <summary>Manually triggers the full pipeline via HTTP POST (Function key required).</summary>
+    [Function("DailyPipeline_Manual")]
+    public async Task<HttpResponseData> ManualStartAsync(
+        [HttpTrigger(AuthorizationLevel.Function, "post", Route = "pipeline/trigger")] HttpRequestData req,
+        [DurableClient] DurableTaskClient client,
+        CancellationToken cancellationToken)
+    {
+        logger.LogInformation("DailyPipeline_Manual triggered at {Time:O}.", DateTime.UtcNow);
 
-        foreach (Location location in locations)
-        {
-            try
-            {
-                IReadOnlyList<WeatherData> forecast = await weatherService.FetchForecastAsync(
-                    location.Id, location.Latitude, location.Longitude, cancellationToken);
+        string instanceId = await client.ScheduleNewOrchestrationInstanceAsync(
+            nameof(DailyPipelineOrchestrator));
 
-                await weatherDataRepository.UpsertRangeAsync(forecast, cancellationToken);
-                _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+        logger.LogInformation("Started orchestrator. InstanceId: {Id}", instanceId);
 
-                logger.LogInformation(
-                    "Upserted {Count} weather records for location '{Name}' (Id={Id}).",
-                    forecast.Count, location.Name, location.Id);
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex,
-                    "Failed to fetch or upsert weather data for location '{Name}' (Id={Id}).",
-                    location.Name, location.Id);
-            }
-        }
-
-        logger.LogInformation("WeatherDataFunction completed.");
+        HttpResponseData response = req.CreateResponse(System.Net.HttpStatusCode.Accepted);
+        await response.WriteAsJsonAsync(new { instanceId }, cancellationToken);
+        return response;
     }
 }
+

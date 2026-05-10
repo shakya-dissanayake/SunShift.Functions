@@ -64,4 +64,14 @@ public class WeatherDataRepository(ApplicationDbContext context) : IWeatherDataR
         dest.SunshineDuration = src.SunshineDuration;
         dest.IsDay = src.IsDay;
     }
+
+    public Task<List<WeatherData>> GetByLocationAndRangeAsync(
+        int locationId,
+        DateTime utcFrom,
+        DateTime utcTo,
+        CancellationToken cancellationToken = default)
+        => context.WeatherData
+            .Where(w => w.LocationId == locationId && w.Timestamp >= utcFrom && w.Timestamp <= utcTo)
+            .OrderBy(w => w.Timestamp)
+            .ToListAsync(cancellationToken);
 }

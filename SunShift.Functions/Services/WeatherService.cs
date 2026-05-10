@@ -25,7 +25,7 @@ public class WeatherService(HttpClient httpClient, ILogger<WeatherService> logge
         CancellationToken cancellationToken = default)
     {
         string url = $"{BaseUrl}?latitude={latitude}&longitude={longitude}" +
-                     $"&minutely_15={MinutelyVariables}&forecast_days=16&timezone=UTC";
+                     $"&minutely_15={MinutelyVariables}&forecast_days=16&timezone=Asia%2FColombo";
 
         OpenMeteoForecastResponse? response = await httpClient
             .GetFromJsonAsync<OpenMeteoForecastResponse>(url, cancellationToken);
@@ -51,7 +51,7 @@ public class WeatherService(HttpClient httpClient, ILogger<WeatherService> logge
             result.Add(new WeatherData
             {
                 LocationId = locationId,
-                Timestamp = DateTime.SpecifyKind(DateTime.Parse(data.Time[i]), DateTimeKind.Utc),
+                Timestamp = DateTime.Parse(data.Time[i]),  // SL local time (Asia/Colombo from Open-Meteo)
                 ShortwaveRadiation = data.ShortwaveRadiation.ElementAtOrDefault(i) ?? 0,
                 DirectNormalIrradiance = data.DirectNormalIrradiance.ElementAtOrDefault(i) ?? 0,
                 DiffuseRadiation = data.DiffuseRadiation.ElementAtOrDefault(i) ?? 0,

@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Configuration.AzureAppConfiguration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using SunShift.Functions.Functions.Activities;
 using SunShift.Functions.Services;
 using SunShift.Infrastructure;
 
@@ -53,6 +54,10 @@ namespace SunShift.Functions
                 {
                     services.AddInfrastructure(ctx.Configuration);
                     _ = services.AddHttpClient<IWeatherService, WeatherService>();
+                    _ = services.AddSingleton<ISolarForecastService, SolarForecastService>();
+
+                    // Register activity classes so they can be resolved for on-demand invocations
+                    _ = services.AddScoped<GenerateForecastsActivity>();
                 })
                 .Build();
 
