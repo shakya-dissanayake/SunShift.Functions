@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="SunShift.Application/SunShift.Application.csproj" />
+  <Project Path="SunShift.Domain/SunShift.Domain.csproj" />
+  <Project Path="SunShift.Functions/SunShift.Functions.csproj" />
+  <Project Path="SunShift.Infrastructure/SunShift.Infrastructure.csproj" />
+</Solution>
