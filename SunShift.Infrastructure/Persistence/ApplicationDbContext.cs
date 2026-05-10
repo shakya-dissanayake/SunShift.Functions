@@ -19,6 +19,8 @@ public class ApplicationDbContext(
     public DbSet<SolarProfile> SolarProfiles => Set<SolarProfile>();
     public DbSet<Forecast> Forecasts => Set<Forecast>();
     public DbSet<ForecastInterval> ForecastIntervals => Set<ForecastInterval>();
+    public DbSet<Workload> Workloads => Set<Workload>();
+    public DbSet<Schedule> Schedules => Set<Schedule>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -29,6 +31,8 @@ public class ApplicationDbContext(
         _ = modelBuilder.ApplyConfiguration(new SolarProfileConfiguration());
         _ = modelBuilder.ApplyConfiguration(new ForecastConfiguration());
         _ = modelBuilder.ApplyConfiguration(new ForecastIntervalConfiguration());
+        _ = modelBuilder.ApplyConfiguration(new WorkloadConfiguration());
+        _ = modelBuilder.ApplyConfiguration(new ScheduleConfiguration());
     }
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

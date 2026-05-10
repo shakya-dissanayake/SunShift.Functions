@@ -11,4 +11,5 @@ public class User : BaseAuditableEntity
     public Location? Location { get; set; }
     public SolarProfile? SolarProfile { get; set; }
     public List<Forecast> Forecasts { get; set; } = [];
+    public List<Workload> Workloads { get; set; } = [];
 }

@@ -20,8 +20,8 @@ public class DailyPipelineOrchestrator
         // Step 2 – generate solar forecasts for all users
         await context.CallActivityAsync(nameof(GenerateForecastsActivity), null);
 
-        // Step 3 – scheduling (placeholder for future implementation)
-        // await context.CallActivityAsync(nameof(GenerateSchedulesActivity), null);
+        // Step 3 – schedule workloads against the freshly-generated forecasts
+        await context.CallActivityAsync(nameof(GenerateSchedulesActivity), null);
 
         logger.LogInformation("Daily pipeline orchestrator completed.");
     }

@@ -55,9 +55,11 @@ namespace SunShift.Functions
                     services.AddInfrastructure(ctx.Configuration);
                     _ = services.AddHttpClient<IWeatherService, WeatherService>();
                     _ = services.AddSingleton<ISolarForecastService, SolarForecastService>();
+                    _ = services.AddSingleton<IScheduleService, ScheduleService>();
 
                     // Register activity classes so they can be resolved for on-demand invocations
                     _ = services.AddScoped<GenerateForecastsActivity>();
+                    _ = services.AddScoped<GenerateSchedulesActivity>();
                 })
                 .Build();
 

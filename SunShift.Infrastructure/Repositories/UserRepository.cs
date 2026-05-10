@@ -18,4 +18,14 @@ public class UserRepository(ApplicationDbContext context) : IUserRepository
             .Include(u => u.SolarProfile)
             .Include(u => u.Location)
             .FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
+
+    public Task<List<User>> GetAllActiveWithWorkloadsAsync(CancellationToken cancellationToken = default)
+        => context.Users
+            .Include(u => u.Workloads)
+            .ToListAsync(cancellationToken);
+
+    public Task<User?> GetByIdWithWorkloadsAsync(int userId, CancellationToken cancellationToken = default)
+        => context.Users
+            .Include(u => u.Workloads)
+            .FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
 }

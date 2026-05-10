@@ -29,5 +29,7 @@ public static class ServiceRegistration
         _ = services.AddScoped<IWeatherDataRepository, WeatherDataRepository>();
         _ = services.AddScoped<IUserRepository, UserRepository>();
         _ = services.AddScoped<IForecastRepository, ForecastRepository>();
+        _ = services.AddScoped<IWorkloadRepository, WorkloadRepository>();
+        _ = services.AddScoped<IScheduleRepository, ScheduleRepository>();
     }
 }
