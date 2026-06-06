@@ -9,8 +9,8 @@ namespace SunShift.Domain.Entities;
 public class Workload : BaseAuditableEntity
 {
     public int UserId { get; set; }
-    public double Wattage { get; set; }     // watts
-    public int Duration { get; set; }       // hours
-    public int Priority { get; set; }       // 1 = highest
+    public double Wattage { get; set; }              // watts
+    public int Duration { get; set; }                // minutes
+    public WorkloadPriority Priority { get; set; }   // High scheduled first
     public User? User { get; set; }
 }

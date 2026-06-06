@@ -12,8 +12,9 @@ public class WorkloadConfiguration : IEntityTypeConfiguration<Workload>
         _ = builder.HasKey(x => x.Id);
         _ = builder.Property(x => x.Id).ValueGeneratedOnAdd().UseIdentityColumn();
         _ = builder.Property(x => x.Wattage).HasColumnType("float");
-        _ = builder.Property(x => x.Duration).IsRequired();
-        _ = builder.Property(x => x.Priority).IsRequired();
+        _ = builder.Property(x => x.Duration).IsRequired();   // minutes
+        // Stored as its underlying int (High=1, Normal=2, Low=3); exposed as a string by the API.
+        _ = builder.Property(x => x.Priority).HasConversion<int>().IsRequired();
         _ = builder.Property(x => x.CreatedDate).HasColumnType("datetime2");
         _ = builder.Property(x => x.CreatedBy).HasMaxLength(100);
         _ = builder.Property(x => x.ModifiedDate).HasColumnType("datetime2");

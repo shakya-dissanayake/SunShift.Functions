@@ -1,6 +1,20 @@
 {
     "version": "2.0",
     "logging": {
+        "logLevel": {
+            "default": "Warning",
+            "SunShift": "Debug",
+            "DurableTask": "Warning",
+            "Microsoft.Azure.WebJobs": "Warning",
+            "Microsoft.Azure.WebJobs.Script": "Warning",
+            "Microsoft.Azure.WebJobs.Hosting": "Warning",
+            "DurableTask.AzureStorage": "Warning",
+            "Host.Triggers.DurableTask": "Warning",
+            "Host": "Warning",
+            "Function": "None",
+            "Host.Aggregator": "None",
+            "Host.Results": "None"
+        },
         "applicationInsights": {
             "samplingSettings": {
                 "isEnabled": true,

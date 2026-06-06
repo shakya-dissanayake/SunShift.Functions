@@ -13,7 +13,7 @@ namespace SunShift.Functions.Services;
 ///      residual capacity to cover the workload's wattage.
 ///   4. Allocate by reducing the residual capacity for the chosen window.
 ///
-/// Duration is in hours; each 15-min slot = 0.25 h → numSlots = Duration * 4.
+/// Duration is in minutes; each slot = 15 min → numSlots = Duration / 15.
 /// Wattage is in watts; forecast PredictedKw is in kW → divide Wattage by 1000.
 /// </summary>
 public class ScheduleService : IScheduleService
@@ -39,10 +39,10 @@ public class ScheduleService : IScheduleService
 
         var schedules = new List<Schedule>();
 
-        foreach (Workload workload in workloads.OrderBy(w => w.Priority))
+        foreach (Workload workload in workloads.OrderBy(w => (int)w.Priority))
         {
-            // Duration (hours) × 4 slots/hour = number of 15-min slots needed.
-            int numSlots = Math.Max(1, workload.Duration * 4);
+            // Duration is in minutes; each slot is 15 minutes.
+            int numSlots = Math.Max(1, workload.Duration / 15);
             double wKw = workload.Wattage / 1000.0;
 
             if (n < numSlots) continue; // not enough solar hours in the day
