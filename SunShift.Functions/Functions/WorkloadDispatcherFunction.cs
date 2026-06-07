@@ -114,7 +114,12 @@ public class WorkloadDispatcherFunction(
             integration.AccessTokenExpiresAtUtc = DateTime.UtcNow.AddSeconds(tokens.ExpiresIn - 60);
         }
 
-        return tokenProtector.Unprotect(integration.AccessTokenEncrypted!);
+        if (string.IsNullOrEmpty(integration.AccessTokenEncrypted))
+        {
+            throw new InvalidOperationException($"Active integration for user {integration.UserId} has no access token.");
+        }
+
+        return tokenProtector.Unprotect(integration.AccessTokenEncrypted);
     }
 
     private Task<SmartThingsIntegration?> GetActiveIntegrationAsync(int userId, CancellationToken cancellationToken)

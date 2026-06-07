@@ -45,7 +45,7 @@ public class SmartThingsClient : ISmartThingsClient
         };
         req.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
 
-        HttpResponseMessage resp = await _http.SendAsync(req, cancellationToken);
+        using HttpResponseMessage resp = await _http.SendAsync(req, cancellationToken);
         resp.EnsureSuccessStatusCode();
     }
 
