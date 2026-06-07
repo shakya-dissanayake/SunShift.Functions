@@ -1,13 +1,14 @@
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Logging;
 using SunShift.Application.Common.Interfaces.Repositories;
+using SunShift.Domain.Common;
 using SunShift.Domain.Entities;
 using SunShift.Functions.Services;
 
 namespace SunShift.Functions.Functions.Activities;
 
 public class FetchWeatherActivity(
-    ILocationRepository locationRepository,
+    IUserRepository userRepository,
     IWeatherDataRepository weatherDataRepository,
     IWeatherService weatherService,
     IUnitOfWork unitOfWork,
@@ -16,35 +17,47 @@ public class FetchWeatherActivity(
     [Function(nameof(FetchWeatherActivity))]
     public async Task RunAsync([ActivityTrigger] object? input, CancellationToken cancellationToken)
     {
-        IReadOnlyList<Location> locations = await locationRepository.GetAllAsync(cancellationToken);
+        List<(double Latitude, double Longitude)> coordinates =
+            await userRepository.GetDistinctCoordinatesAsync(cancellationToken);
 
-        if (locations.Count == 0)
+        if (coordinates.Count == 0)
         {
-            logger.LogInformation("FetchWeatherActivity: no active locations found.");
+            logger.LogInformation("FetchWeatherActivity: no user coordinates found.");
             return;
         }
 
-        logger.LogInformation("FetchWeatherActivity: fetching 16-day forecast for {Count} location(s).", locations.Count);
+        // Collapse nearby users onto a shared weather grid so we fetch once per grid cell,
+        // not once per user. The first coordinate seen for a key is its representative point.
+        Dictionary<string, (double Latitude, double Longitude)> byGeoKey = new();
+        foreach ((double lat, double lon) in coordinates)
+        {
+            string key = GeoKey.From(lat, lon);
+            _ = byGeoKey.TryAdd(key, (lat, lon));
+        }
 
-        foreach (Location location in locations)
+        logger.LogInformation(
+            "FetchWeatherActivity: fetching 16-day forecast for {Cells} weather-grid cell(s) from {Users} user coordinate(s).",
+            byGeoKey.Count, coordinates.Count);
+
+        foreach ((string geoKey, (double lat, double lon)) in byGeoKey)
         {
             try
             {
                 IReadOnlyList<WeatherData> forecast = await weatherService.FetchForecastAsync(
-                    location.Id, location.Latitude, location.Longitude, cancellationToken);
+                    geoKey, lat, lon, cancellationToken);
 
                 await weatherDataRepository.UpsertRangeAsync(forecast, cancellationToken);
                 _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
                 logger.LogInformation(
-                    "FetchWeatherActivity: upserted {Count} records for '{Name}' (Id={Id}).",
-                    forecast.Count, location.Name, location.Id);
+                    "FetchWeatherActivity: upserted {Count} records for grid cell {GeoKey} ({Lat}, {Lon}).",
+                    forecast.Count, geoKey, lat, lon);
             }
             catch (Exception ex)
             {
                 logger.LogError(ex,
-                    "FetchWeatherActivity: failed for location '{Name}' (Id={Id}).",
-                    location.Name, location.Id);
+                    "FetchWeatherActivity: failed for grid cell {GeoKey} ({Lat}, {Lon}).",
+                    geoKey, lat, lon);
             }
         }
     }

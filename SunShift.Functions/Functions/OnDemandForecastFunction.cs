@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Logging;
 using SunShift.Application.Common.Interfaces.Repositories;
+using SunShift.Domain.Common;
 using SunShift.Domain.Entities;
 using SunShift.Functions.Functions.Activities;
 
@@ -51,8 +52,9 @@ public class OnDemandForecastFunction(
         DateTime slFrom = DateTime.Now.Date;  // SL local (WEBSITE_TIME_ZONE = Sri Lanka Standard Time)
         DateTime slTo = slFrom.AddDays(13);
 
+        string geoKey = GeoKey.From(user.Latitude, user.Longitude);
         Dictionary<DateTime, WeatherData> weatherMap = await generateForecastsActivity
-            .LoadWeatherMapAsync(user.LocationId, slFrom, slTo, cancellationToken);
+            .LoadWeatherMapAsync(geoKey, slFrom, slTo, cancellationToken);
 
         await generateForecastsActivity.GenerateForUserAsync(user, weatherMap, slFrom, slTo, cancellationToken);
 

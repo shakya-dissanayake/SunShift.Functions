@@ -15,23 +15,23 @@ public class WeatherDataRepository(ApplicationDbContext context) : IWeatherDataR
             return;
         }
 
-        List<int> locationIds = itemList.Select(x => x.LocationId).Distinct().ToList();
+        List<string> geoKeys = itemList.Select(x => x.GeoKey).Distinct().ToList();
         DateTime minTs = itemList.Min(x => x.Timestamp);
         DateTime maxTs = itemList.Max(x => x.Timestamp);
 
         // IgnoreQueryFilters so we can find and restore soft-deleted rows
         List<WeatherData> existing = await context.WeatherData
             .IgnoreQueryFilters()
-            .Where(x => locationIds.Contains(x.LocationId)
+            .Where(x => geoKeys.Contains(x.GeoKey)
                      && x.Timestamp >= minTs
                      && x.Timestamp <= maxTs)
             .ToListAsync(cancellationToken);
 
-        Dictionary<(int LocationId, DateTime Timestamp), WeatherData> existingLookup = existing.ToDictionary(x => (x.LocationId, x.Timestamp));
+        Dictionary<(string GeoKey, DateTime Timestamp), WeatherData> existingLookup = existing.ToDictionary(x => (x.GeoKey, x.Timestamp));
 
         foreach (WeatherData item in itemList)
         {
-            if (existingLookup.TryGetValue((item.LocationId, item.Timestamp), out WeatherData? existingRow))
+            if (existingLookup.TryGetValue((item.GeoKey, item.Timestamp), out WeatherData? existingRow))
             {
                 MapProperties(item, existingRow);
                 existingRow.IsDeleted = false;
@@ -65,13 +65,13 @@ public class WeatherDataRepository(ApplicationDbContext context) : IWeatherDataR
         dest.IsDay = src.IsDay;
     }
 
-    public Task<List<WeatherData>> GetByLocationAndRangeAsync(
-        int locationId,
-        DateTime utcFrom,
-        DateTime utcTo,
+    public Task<List<WeatherData>> GetByGeoKeyAndRangeAsync(
+        string geoKey,
+        DateTime slFrom,
+        DateTime slTo,
         CancellationToken cancellationToken = default)
         => context.WeatherData
-            .Where(w => w.LocationId == locationId && w.Timestamp >= utcFrom && w.Timestamp <= utcTo)
+            .Where(w => w.GeoKey == geoKey && w.Timestamp >= slFrom && w.Timestamp <= slTo)
             .OrderBy(w => w.Timestamp)
             .ToListAsync(cancellationToken);
 }

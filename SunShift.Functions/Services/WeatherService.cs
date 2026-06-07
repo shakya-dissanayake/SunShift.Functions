@@ -19,7 +19,7 @@ public class WeatherService(HttpClient httpClient, ILogger<WeatherService> logge
     ]);
 
     public async Task<IReadOnlyList<WeatherData>> FetchForecastAsync(
-        int locationId,
+        string geoKey,
         double latitude,
         double longitude,
         CancellationToken cancellationToken = default)
@@ -33,15 +33,15 @@ public class WeatherService(HttpClient httpClient, ILogger<WeatherService> logge
         if (response?.Minutely15 is null || response.Minutely15.Time.Count == 0)
         {
             logger.LogWarning(
-                "Empty or null response from Open-Meteo for location {LocationId} ({Lat}, {Lon})",
-                locationId, latitude, longitude);
+                "Empty or null response from Open-Meteo for geoKey {GeoKey} ({Lat}, {Lon})",
+                geoKey, latitude, longitude);
             return [];
         }
 
-        return MapToWeatherData(locationId, response.Minutely15);
+        return MapToWeatherData(geoKey, response.Minutely15);
     }
 
-    private static List<WeatherData> MapToWeatherData(int locationId, MinutelyData data)
+    private static List<WeatherData> MapToWeatherData(string geoKey, MinutelyData data)
     {
         int count = data.Time.Count;
         List<WeatherData> result = new(count);
@@ -50,7 +50,7 @@ public class WeatherService(HttpClient httpClient, ILogger<WeatherService> logge
         {
             result.Add(new WeatherData
             {
-                LocationId = locationId,
+                GeoKey = geoKey,
                 Timestamp = DateTime.Parse(data.Time[i]),  // SL local time (Asia/Colombo from Open-Meteo)
                 ShortwaveRadiation = data.ShortwaveRadiation.ElementAtOrDefault(i) ?? 0,
                 DirectNormalIrradiance = data.DirectNormalIrradiance.ElementAtOrDefault(i) ?? 0,

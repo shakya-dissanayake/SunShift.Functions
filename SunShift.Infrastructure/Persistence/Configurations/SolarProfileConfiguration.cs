@@ -14,7 +14,7 @@ public class SolarProfileConfiguration : IEntityTypeConfiguration<SolarProfile>
         _ = builder.Property(x => x.PanelCapacityKw).HasColumnType("float");
         _ = builder.Property(x => x.InverterCapacityKw).HasColumnType("float");
         _ = builder.Property(x => x.TiltAngle).HasColumnType("float");
-        _ = builder.Property(x => x.Azimuth).HasMaxLength(10).IsRequired();
+        _ = builder.Property(x => x.Azimuth).IsRequired();   // degrees (0–359)
         _ = builder.Property(x => x.CreatedDate).HasColumnType("datetime2");
         _ = builder.Property(x => x.CreatedBy).HasMaxLength(100);
         _ = builder.Property(x => x.ModifiedDate).HasColumnType("datetime2");

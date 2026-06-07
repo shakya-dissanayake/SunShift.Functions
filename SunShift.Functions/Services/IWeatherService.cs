@@ -5,7 +5,7 @@ namespace SunShift.Functions.Services;
 public interface IWeatherService
 {
     Task<IReadOnlyList<WeatherData>> FetchForecastAsync(
-        int locationId,
+        string geoKey,
         double latitude,
         double longitude,
         CancellationToken cancellationToken = default);

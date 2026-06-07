@@ -61,7 +61,7 @@ public sealed class SolarForecastService : ISolarForecastService, IDisposable
             ?? throw new InvalidOperationException($"User {user.Id} has no SolarProfile.");
 
         double tiltRad = profile.TiltAngle * Math.PI / 180.0;
-        double panelAzimuthDeg = ParseAzimuthDeg(profile.Azimuth);
+        double panelAzimuthDeg = profile.Azimuth;
 
         var results = new List<(DateTime, double, List<ForecastInterval>)>();
 
@@ -124,10 +124,7 @@ public sealed class SolarForecastService : ISolarForecastService, IDisposable
         return Task.FromResult(results);
     }
 
-    // ──────────────────────────────────────────────────────────────────────
     // Private helpers
-    // ──────────────────────────────────────────────────────────────────────
-
     private record IntervalSpec(
         DateTime SlLocalTime,
         WeatherData Weather,
@@ -259,8 +256,7 @@ public sealed class SolarForecastService : ISolarForecastService, IDisposable
         return Math.Min(Math.Max(0.0, predicted), profile.InverterCapacityKw);
     }
 
-    // ── Solar geometry (Spencer 1971) ──────────────────────────────────────
-
+    // Solar geometry (Spencer 1971) 
     private static double ComputeSolarElevationDeg(int doy, double timeDecSl)
     {
         double b = 2.0 * Math.PI * (doy - 1) / 365.0;
@@ -312,8 +308,7 @@ public sealed class SolarForecastService : ISolarForecastService, IDisposable
         return (az * 180.0 / Math.PI + 180.0 + 360.0) % 360.0;
     }
 
-    // ── Lag / rolling helpers ──────────────────────────────────────────────
-
+    // Lag / rolling helpers 
     private static double GetGhi(Dictionary<DateTime, WeatherData> map, DateTime utc)
         => map.TryGetValue(utc, out var w) ? w.ShortwaveRadiation : 0.0;
 
@@ -342,23 +337,6 @@ public sealed class SolarForecastService : ISolarForecastService, IDisposable
         }
         return count == 0 ? 0.0 : sum / count;
     }
-
-    // ── Azimuth string parser ──────────────────────────────────────────────
-
-    private static double ParseAzimuthDeg(string azimuth) =>
-        azimuth.Trim().ToUpperInvariant() switch
-        {
-            "N"  => 0.0,
-            "NE" => 45.0,
-            "E"  => 90.0,
-            "SE" => 135.0,
-            "S"  => 180.0,
-            "SW" => 225.0,
-            "W"  => 270.0,
-            "NW" => 315.0,
-            var s when double.TryParse(s, out double deg) => deg,
-            _ => 180.0  // default: south-facing (optimal for Sri Lanka)
-        };
 
     public void Dispose() => _session.Dispose();
 }

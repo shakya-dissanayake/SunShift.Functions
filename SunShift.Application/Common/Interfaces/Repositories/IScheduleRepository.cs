@@ -14,5 +14,16 @@ public interface IScheduleRepository
         TimeSpan fromTimeSl,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Returns the schedules for the given workloads on <paramref name="dateSl"/> that started
+    /// before <paramref name="fromTimeSl"/> — i.e. the in-progress rows preserved by
+    /// <see cref="DeleteFutureAsync"/>. Their solar draw must be reserved when re-scheduling today.
+    /// </summary>
+    Task<List<Schedule>> GetInProgressTodayAsync(
+        IEnumerable<int> workloadIds,
+        DateTime dateSl,
+        TimeSpan fromTimeSl,
+        CancellationToken cancellationToken = default);
+
     Task AddRangeAsync(IEnumerable<Schedule> schedules, CancellationToken cancellationToken = default);
 }

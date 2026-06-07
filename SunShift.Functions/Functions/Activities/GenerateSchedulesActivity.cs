@@ -43,7 +43,7 @@ public class GenerateSchedulesActivity(
         logger.LogInformation("GenerateSchedulesActivity: completed.");
     }
 
-    // ── Called for a single user on-demand (e.g. from queue trigger) ───────
+    // Called for a single user on-demand (e.g. from queue trigger)
 
     public async Task GenerateForUserAsync(
         User user,
@@ -59,12 +59,19 @@ public class GenerateSchedulesActivity(
             // Hard-delete future schedules while preserving any past/ongoing slots for today.
             await scheduleRepository.DeleteFutureAsync(workloadIds, slFrom, slNowTime, cancellationToken);
 
+            // Solar already committed to in-progress workloads today must not be double-booked
+            // when we re-schedule the remainder of the day.
+            List<Schedule> inProgressToday = await scheduleRepository.GetInProgressTodayAsync(
+                workloadIds, slFrom, slNowTime, cancellationToken);
+
             var allSchedules = new List<Schedule>();
+            int daysWithForecast = 0;
 
             for (DateTime date = slFrom; date <= slTo; date = date.AddDays(1))
             {
                 // For today, skip slots that have already started.
                 TimeSpan cutoff = date == slFrom ? slNowTime : TimeSpan.Zero;
+                IReadOnlyList<Schedule>? existing = date == slFrom ? inProgressToday : null;
 
                 Forecast? forecast = await forecastRepository.GetByUserAndDateAsync(
                     user.Id, date, cancellationToken);
@@ -77,8 +84,10 @@ public class GenerateSchedulesActivity(
                     continue;
                 }
 
+                daysWithForecast++;
+
                 IReadOnlyList<Schedule> daySchedules =
-                    scheduleService.ScheduleDay(user.Workloads, forecast, date, cutoff);
+                    scheduleService.ScheduleDay(user.Workloads, forecast, date, cutoff, existing);
 
                 allSchedules.AddRange(daySchedules);
             }
@@ -86,9 +95,20 @@ public class GenerateSchedulesActivity(
             await scheduleRepository.AddRangeAsync(allSchedules, cancellationToken);
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
-            logger.LogInformation(
-                "GenerateSchedulesActivity: created {Count} schedule(s) for user {UserId}.",
-                allSchedules.Count, user.Id);
+            if (daysWithForecast == 0)
+            {
+                logger.LogWarning(
+                    "GenerateSchedulesActivity: user {UserId} has {WorkloadCount} workload(s) but NO forecasts " +
+                    "in SL range {From:yyyy-MM-dd}..{To:yyyy-MM-dd} — created 0 schedules. " +
+                    "Run forecasts (and weather) first.",
+                    user.Id, user.Workloads.Count, slFrom, slTo);
+            }
+            else
+            {
+                logger.LogInformation(
+                    "GenerateSchedulesActivity: created {Count} schedule(s) for user {UserId} across {Days} day(s) with forecasts.",
+                    allSchedules.Count, user.Id, daysWithForecast);
+            }
         }
         catch (Exception ex)
         {

@@ -1,6 +1,7 @@
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Logging;
 using SunShift.Application.Common.Interfaces.Repositories;
+using SunShift.Domain.Common;
 using SunShift.Domain.Entities;
 using SunShift.Functions.Services;
 
@@ -33,16 +34,16 @@ public class GenerateForecastsActivity(
             "GenerateForecastsActivity: generating forecasts for {Count} user(s), SL range {From:yyyy-MM-dd} to {To:yyyy-MM-dd}.",
             users.Count, slFrom, slTo);
 
-        // Group users by location to load weather data only once per location
-        IEnumerable<IGrouping<int, User>> byLocation = users
+        // Group users by weather-grid key to load weather only once per grid cell.
+        IEnumerable<IGrouping<string, User>> byGeoKey = users
             .Where(u => u.SolarProfile is not null)
-            .GroupBy(u => u.LocationId);
+            .GroupBy(u => GeoKey.From(u.Latitude, u.Longitude));
 
-        foreach (IGrouping<int, User> group in byLocation)
+        foreach (IGrouping<string, User> group in byGeoKey)
         {
-            int locationId = group.Key;
+            string geoKey = group.Key;
             Dictionary<DateTime, WeatherData> weatherMap =
-                await LoadWeatherMapAsync(locationId, slFrom, slTo, cancellationToken);
+                await LoadWeatherMapAsync(geoKey, slFrom, slTo, cancellationToken);
 
             foreach (User user in group)
             {
@@ -53,8 +54,7 @@ public class GenerateForecastsActivity(
         logger.LogInformation("GenerateForecastsActivity: completed.");
     }
 
-    // ── Called for a single user on-demand (e.g. from queue trigger) ──────
-
+    // Called for a single user on-demand (e.g. from queue trigger)
     public async Task GenerateForUserAsync(
         User user,
         Dictionary<DateTime, WeatherData> weatherMap,
@@ -87,7 +87,7 @@ public class GenerateForecastsActivity(
     }
 
     internal async Task<Dictionary<DateTime, WeatherData>> LoadWeatherMapAsync(
-        int locationId,
+        string geoKey,
         DateTime slFrom,
         DateTime slTo,
         CancellationToken cancellationToken)
@@ -96,8 +96,8 @@ public class GenerateForecastsActivity(
         DateTime from = slFrom.AddHours(-2);
         DateTime to = slTo.Date.AddHours(23).AddMinutes(45);
 
-        List<WeatherData> rows = await weatherDataRepository.GetByLocationAndRangeAsync(
-            locationId, from, to, cancellationToken);
+        List<WeatherData> rows = await weatherDataRepository.GetByGeoKeyAndRangeAsync(
+            geoKey, from, to, cancellationToken);
 
         return rows.ToDictionary(w => w.Timestamp);
     }

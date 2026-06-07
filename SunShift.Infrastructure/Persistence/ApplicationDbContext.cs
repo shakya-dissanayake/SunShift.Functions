@@ -13,7 +13,6 @@ public class ApplicationDbContext(
 {
     private readonly ICurrentUserService _currentUserService = currentUserService;
 
-    public DbSet<Location> Locations => Set<Location>();
     public DbSet<WeatherData> WeatherData => Set<WeatherData>();
     public DbSet<User> Users => Set<User>();
     public DbSet<SolarProfile> SolarProfiles => Set<SolarProfile>();
@@ -25,7 +24,6 @@ public class ApplicationDbContext(
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
-        _ = modelBuilder.ApplyConfiguration(new LocationConfiguration());
         _ = modelBuilder.ApplyConfiguration(new WeatherDataConfiguration());
         _ = modelBuilder.ApplyConfiguration(new UserConfiguration());
         _ = modelBuilder.ApplyConfiguration(new SolarProfileConfiguration());

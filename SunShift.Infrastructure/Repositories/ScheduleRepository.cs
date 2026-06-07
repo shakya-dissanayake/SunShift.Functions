@@ -25,6 +25,22 @@ public class ScheduleRepository(ApplicationDbContext context) : IScheduleReposit
             .ExecuteDeleteAsync(cancellationToken);
     }
 
+    public Task<List<Schedule>> GetInProgressTodayAsync(
+        IEnumerable<int> workloadIds,
+        DateTime dateSl,
+        TimeSpan fromTimeSl,
+        CancellationToken cancellationToken = default)
+    {
+        DateTime dateOnly = dateSl.Date;
+
+        // The rows DeleteFutureAsync intentionally preserved: today's slots already in progress.
+        return context.Schedules
+            .Where(s => workloadIds.Contains(s.WorkloadId) &&
+                        s.ScheduledDate == dateOnly &&
+                        s.StartTime < fromTimeSl)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task AddRangeAsync(
         IEnumerable<Schedule> schedules,
         CancellationToken cancellationToken = default)
