@@ -21,6 +21,7 @@ public class ScheduleConfiguration : IEntityTypeConfiguration<Schedule>
         _ = builder.Property(x => x.ModifiedDate).HasColumnType("datetime2");
         _ = builder.Property(x => x.ModifiedBy).HasMaxLength(100);
         _ = builder.HasQueryFilter(x => !x.IsDeleted);
+        _ = builder.HasIndex(x => new { x.ScheduledDate, x.Status });
         _ = builder.HasOne(x => x.Workload)
             .WithMany()
             .HasForeignKey(x => x.WorkloadId)

@@ -47,4 +47,35 @@ public class ScheduleRepository(ApplicationDbContext context) : IScheduleReposit
     {
         await context.Schedules.AddRangeAsync(schedules, cancellationToken);
     }
+
+    // Schedules that should have their device turned ON: start time has passed, not yet started.
+    public Task<List<Schedule>> GetDueToStartAsync(
+        DateTime dateSl,
+        TimeSpan nowTimeSl,
+        CancellationToken cancellationToken = default)
+        => context.Schedules
+            .Include(s => s.Workload)
+            .Where(s => s.ScheduledDate == dateSl.Date
+                     && s.StartTime <= nowTimeSl
+                     && s.EndTime > nowTimeSl
+                     && s.Status == "Scheduled"
+                     && s.Workload != null
+                     && s.Workload.IsIoTEnabled
+                     && s.Workload.IoTEntityId != null)
+            .ToListAsync(cancellationToken);
+
+    // Schedules that should have their device turned OFF: end time has passed, still marked Started.
+    public Task<List<Schedule>> GetDueToEndAsync(
+        DateTime dateSl,
+        TimeSpan nowTimeSl,
+        CancellationToken cancellationToken = default)
+        => context.Schedules
+            .Include(s => s.Workload)
+            .Where(s => s.ScheduledDate == dateSl.Date
+                     && s.EndTime <= nowTimeSl
+                     && s.Status == "Started"
+                     && s.Workload != null
+                     && s.Workload.IsIoTEnabled
+                     && s.Workload.IoTEntityId != null)
+            .ToListAsync(cancellationToken);
 }

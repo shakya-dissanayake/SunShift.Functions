@@ -20,6 +20,7 @@ public class ApplicationDbContext(
     public DbSet<ForecastInterval> ForecastIntervals => Set<ForecastInterval>();
     public DbSet<Workload> Workloads => Set<Workload>();
     public DbSet<Schedule> Schedules => Set<Schedule>();
+    public DbSet<SmartThingsIntegration> SmartThingsIntegrations => Set<SmartThingsIntegration>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -31,6 +32,7 @@ public class ApplicationDbContext(
         _ = modelBuilder.ApplyConfiguration(new ForecastIntervalConfiguration());
         _ = modelBuilder.ApplyConfiguration(new WorkloadConfiguration());
         _ = modelBuilder.ApplyConfiguration(new ScheduleConfiguration());
+        _ = modelBuilder.ApplyConfiguration(new SmartThingsIntegrationConfiguration());
     }
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

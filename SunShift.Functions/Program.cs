@@ -3,9 +3,13 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Configuration.AzureAppConfiguration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using SunShift.Application.Common.Interfaces.Repositories;
+using SunShift.Application.Common.Interfaces.Services;
 using SunShift.Functions.Functions.Activities;
 using SunShift.Functions.Services;
 using SunShift.Infrastructure;
+using SunShift.Infrastructure.Repositories;
+using SunShift.Infrastructure.Services;
 
 namespace SunShift.Functions
 {
@@ -56,6 +60,10 @@ namespace SunShift.Functions
                     _ = services.AddHttpClient<IWeatherService, WeatherService>();
                     _ = services.AddSingleton<ISolarForecastService, SolarForecastService>();
                     _ = services.AddSingleton<IScheduleService, ScheduleService>();
+
+                    _ = services.AddSingleton<ITokenProtector, AesGcmTokenProtector>();
+                    _ = services.AddScoped<ISmartThingsIntegrationRepository, SmartThingsIntegrationRepository>();
+                    _ = services.AddHttpClient<ISmartThingsClient, SmartThingsClient>();
 
                     // Register activity classes so they can be resolved for on-demand invocations
                     _ = services.AddScoped<GenerateForecastsActivity>();

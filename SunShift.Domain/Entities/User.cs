@@ -12,4 +12,5 @@ public class User : BaseAuditableEntity
     public SolarProfile? SolarProfile { get; set; }
     public List<Forecast> Forecasts { get; set; } = [];
     public List<Workload> Workloads { get; set; } = [];
+    public SmartThingsIntegration? SmartThingsIntegration { get; set; }
 }

@@ -12,5 +12,7 @@ public class Workload : BaseAuditableEntity
     public double Wattage { get; set; }              // watts
     public int Duration { get; set; }                // minutes
     public WorkloadPriority Priority { get; set; }   // High scheduled first
+    public bool IsIoTEnabled { get; set; }
+    public string? IoTEntityId { get; set; }
     public User? User { get; set; }
 }

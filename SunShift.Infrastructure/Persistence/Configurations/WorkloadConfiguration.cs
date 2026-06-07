@@ -15,6 +15,8 @@ public class WorkloadConfiguration : IEntityTypeConfiguration<Workload>
         _ = builder.Property(x => x.Duration).IsRequired();   // minutes
         // Stored as its underlying int (High=1, Normal=2, Low=3); exposed as a string by the API.
         _ = builder.Property(x => x.Priority).HasConversion<int>().IsRequired();
+        _ = builder.Property(x => x.IsIoTEnabled).IsRequired();
+        _ = builder.Property(x => x.IoTEntityId).HasMaxLength(200);
         _ = builder.Property(x => x.CreatedDate).HasColumnType("datetime2");
         _ = builder.Property(x => x.CreatedBy).HasMaxLength(100);
         _ = builder.Property(x => x.ModifiedDate).HasColumnType("datetime2");

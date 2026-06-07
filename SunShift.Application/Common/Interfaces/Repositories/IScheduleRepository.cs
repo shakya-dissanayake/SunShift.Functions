@@ -26,4 +26,8 @@ public interface IScheduleRepository
         CancellationToken cancellationToken = default);
 
     Task AddRangeAsync(IEnumerable<Schedule> schedules, CancellationToken cancellationToken = default);
+
+    Task<List<Schedule>> GetDueToStartAsync(DateTime dateSl, TimeSpan nowTimeSl, CancellationToken cancellationToken = default);
+
+    Task<List<Schedule>> GetDueToEndAsync(DateTime dateSl, TimeSpan nowTimeSl, CancellationToken cancellationToken = default);
 }
