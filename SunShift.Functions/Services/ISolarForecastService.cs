@@ -15,5 +15,6 @@ public interface ISolarForecastService
         Dictionary<DateTime, WeatherData> weatherBySl,
         DateTime slFromDate,
         DateTime slToDate,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        Func<int, int, Task>? onDayProgress = null);
 }

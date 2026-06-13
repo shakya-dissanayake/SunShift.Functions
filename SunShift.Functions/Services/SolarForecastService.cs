@@ -46,12 +46,13 @@ public sealed class SolarForecastService : ISolarForecastService, IDisposable
         _session = new InferenceSession(modelPath);
     }
 
-    public Task<List<(DateTime TargetDateSl, double TotalKwh, List<ForecastInterval> Intervals)>> GenerateAsync(
+    public async Task<List<(DateTime TargetDateSl, double TotalKwh, List<ForecastInterval> Intervals)>> GenerateAsync(
         User user,
         Dictionary<DateTime, WeatherData> weatherBySl,
         DateTime slFromDate,
         DateTime slToDate,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        Func<int, int, Task>? onDayProgress = null)
     {
         SolarProfile profile = user.SolarProfile
             ?? throw new InvalidOperationException($"User {user.Id} has no SolarProfile.");
@@ -65,6 +66,9 @@ public sealed class SolarForecastService : ISolarForecastService, IDisposable
 
         var results = new List<(DateTime, double, List<ForecastInterval>)>();
 
+        int totalDays = (int)(slToDate.Date - slFromDate.Date).TotalDays + 1;
+        int dayIndex = 0;
+
         for (DateTime slDate = slFromDate.Date; slDate <= slToDate.Date; slDate = slDate.AddDays(1))
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -76,6 +80,12 @@ public sealed class SolarForecastService : ISolarForecastService, IDisposable
                 _logger.LogDebug(
                     "Skipping SL date {Date:yyyy-MM-dd} for user {UserId}: no weather data.",
                     slDate, user.Id);
+
+                dayIndex++;
+                if (onDayProgress is not null)
+                {
+                    await onDayProgress(dayIndex, totalDays);
+                }
                 continue;
             }
 
@@ -121,9 +131,15 @@ public sealed class SolarForecastService : ISolarForecastService, IDisposable
             }
 
             results.Add((slDate, totalKwh, forecastIntervals));
+
+            dayIndex++;
+            if (onDayProgress is not null)
+            {
+                await onDayProgress(dayIndex, totalDays);
+            }
         }
 
-        return Task.FromResult(results);
+        return results;
     }
 
     // Private helpers

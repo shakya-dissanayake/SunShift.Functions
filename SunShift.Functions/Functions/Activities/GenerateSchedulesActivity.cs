@@ -43,14 +43,13 @@ public class GenerateSchedulesActivity(
         logger.LogInformation("GenerateSchedulesActivity: completed.");
     }
 
-    // Called for a single user on-demand (e.g. from queue trigger)
-
     public async Task GenerateForUserAsync(
         User user,
         DateTime slFrom,
         TimeSpan slNowTime,
         DateTime slTo,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Func<int, Task>? onDayProgress = null)
     {
         try
         {
@@ -67,6 +66,11 @@ public class GenerateSchedulesActivity(
             var allSchedules = new List<Schedule>();
             int daysWithForecast = 0;
 
+            const int progressFloor = 10;
+            const int progressCeiling = 95;
+            int totalDays = (int)(slTo.Date - slFrom.Date).TotalDays + 1;
+            int dayIndex = 0;
+
             for (DateTime date = slFrom; date <= slTo; date = date.AddDays(1))
             {
                 // For today, skip slots that have already started.
@@ -76,20 +80,29 @@ public class GenerateSchedulesActivity(
                 Forecast? forecast = await forecastRepository.GetByUserAndDateAsync(
                     user.Id, date, cancellationToken);
 
-                if (forecast is null)
+                if (forecast is not null)
+                {
+                    daysWithForecast++;
+
+                    IReadOnlyList<Schedule> daySchedules =
+                        scheduleService.ScheduleDay(user.Workloads, forecast, date, cutoff, existing);
+
+                    allSchedules.AddRange(daySchedules);
+                }
+                else
                 {
                     logger.LogDebug(
                         "GenerateSchedulesActivity: no forecast for user {UserId} on {Date:yyyy-MM-dd} — skipping.",
                         user.Id, date);
-                    continue;
                 }
 
-                daysWithForecast++;
-
-                IReadOnlyList<Schedule> daySchedules =
-                    scheduleService.ScheduleDay(user.Workloads, forecast, date, cutoff, existing);
-
-                allSchedules.AddRange(daySchedules);
+                dayIndex++;
+                if (onDayProgress is not null)
+                {
+                    int percent = progressFloor
+                        + (int)Math.Round((double)dayIndex / totalDays * (progressCeiling - progressFloor));
+                    await onDayProgress(percent);
+                }
             }
 
             await scheduleRepository.AddRangeAsync(allSchedules, cancellationToken);

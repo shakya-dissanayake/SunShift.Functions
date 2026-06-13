@@ -55,18 +55,42 @@ public class OnDemandForecastFunction(
             return;
         }
 
-        await progressNotifier.NotifyAsync(userId, "FetchingWeather", 20, cancellationToken);
-
         DateTime slFrom = DateTime.Now.Date;  // SL local (WEBSITE_TIME_ZONE = Sri Lanka Standard Time)
         DateTime slTo = slFrom.AddDays(13);
+        int totalDays = (int)(slTo - slFrom).TotalDays + 1;
 
+        // --- Phase 1: Preparing weather data (0..100 over the day horizon) ---
         string geoKey = GeoKey.From(user.Latitude, user.Longitude);
         Dictionary<DateTime, WeatherData> weatherMap = await generateForecastsActivity
             .LoadWeatherMapAsync(geoKey, slFrom, slTo, cancellationToken);
 
-        await progressNotifier.NotifyAsync(userId, "GeneratingForecasts", 50, cancellationToken);
+        await progressNotifier.NotifyAsync(userId, "PreparingWeatherData", 0, cancellationToken);
+        for (int i = 0; i < totalDays; i++)
+        {
+            // Validate weather coverage for each day so the phase reflects real per-day work.
+            DateTime day = slFrom.AddDays(i);
+            bool hasWeather = weatherMap.Keys.Any(k => k.Date == day);
+            if (!hasWeather)
+            {
+                logger.LogDebug(
+                    "OnDemandForecastFunction: no weather for user {UserId} on {Date:yyyy-MM-dd}.",
+                    userId, day);
+            }
 
-        await generateForecastsActivity.GenerateForUserAsync(user, weatherMap, slFrom, slTo, cancellationToken);
+            int percent = (int)Math.Round((double)(i + 1) / totalDays * 100);
+            await progressNotifier.NotifyAsync(userId, "PreparingWeatherData", percent, cancellationToken);
+        }
+
+        // --- Phase 2: Forecasting solar generation (0..100 over the day horizon) ---
+        await progressNotifier.NotifyAsync(userId, "ForecastingSolarGeneration", 0, cancellationToken);
+        await generateForecastsActivity.GenerateForUserAsync(
+            user, weatherMap, slFrom, slTo, cancellationToken,
+            onDayProgress: (daysProcessed, dayTotal) =>
+            {
+                int percent = (int)Math.Round((double)daysProcessed / dayTotal * 100);
+                return progressNotifier.NotifyAsync(
+                    userId, "ForecastingSolarGeneration", percent, cancellationToken);
+            });
 
         await progressNotifier.NotifyAsync(userId, "Ready", 100, cancellationToken);
 

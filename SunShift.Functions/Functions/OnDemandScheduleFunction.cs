@@ -64,12 +64,12 @@ public class OnDemandScheduleFunction(
             return;
         }
 
-        await progressNotifier.NotifyAsync(userId, "GeneratingSchedules", 50, cancellationToken);
-
         DateTime slNow = DateTime.Now;  // SL local (WEBSITE_TIME_ZONE = Sri Lanka Standard Time)
 
         await generateSchedulesActivity.GenerateForUserAsync(
-            user, slNow.Date, slNow.TimeOfDay, slNow.Date.AddDays(13), cancellationToken);
+            user, slNow.Date, slNow.TimeOfDay, slNow.Date.AddDays(13), cancellationToken,
+            onDayProgress: percent =>
+                progressNotifier.NotifyAsync(userId, "GeneratingSchedules", percent, cancellationToken));
 
         await progressNotifier.NotifyAsync(userId, "Ready", 100, cancellationToken);
 

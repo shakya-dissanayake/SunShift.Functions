@@ -12,7 +12,7 @@ namespace SunShift.Infrastructure.Services;
 
 public class SignalRScheduleProgressNotifier : IScheduleProgressNotifier
 {
-    private const string HubName = "scheduleProgress";
+    private const string HubName = "ScheduleProgressHub";
     private const string SignalRAudience = "https://signalr.azure.com";
 
     private readonly HttpClient _http;
@@ -28,10 +28,9 @@ public class SignalRScheduleProgressNotifier : IScheduleProgressNotifier
         _http = http;
         _logger = logger;
 
-        string connectionString = configuration[ConfigurationKeys.SignalRConnectionString]
-            ?? throw new InvalidOperationException($"Configuration key '{ConfigurationKeys.SignalRConnectionString}' is missing.");
-
-        _endpoint = ParseEndpoint(connectionString);
+        _endpoint = (configuration[ConfigurationKeys.SignalREndpoint]
+            ?? throw new InvalidOperationException($"Configuration key '{ConfigurationKeys.SignalREndpoint}' is missing."))
+            .TrimEnd('/');
 
         string? clientId = configuration["ManagedIdentityClientId"];
         _credential = new DefaultAzureCredential(new DefaultAzureCredentialOptions
@@ -42,8 +41,6 @@ public class SignalRScheduleProgressNotifier : IScheduleProgressNotifier
 
     public async Task NotifyAsync(int userId, string stage, int progressPercent, CancellationToken cancellationToken = default)
     {
-        // Azure SignalR REST: POST {endpoint}/api/v1/hubs/{hub}/groups/{group}
-        // The hub adds each connection to a group keyed by the user's internal integer Id.
         string url = $"{_endpoint}/api/v1/hubs/{HubName}/groups/{userId}";
 
         string payload = JsonSerializer.Serialize(new
@@ -71,19 +68,5 @@ public class SignalRScheduleProgressNotifier : IScheduleProgressNotifier
                 "SignalRScheduleProgressNotifier: failed to send progress (userId={UserId}, stage={Stage}). Status={Status}, Body={Body}",
                 userId, stage, (int)resp.StatusCode, body);
         }
-    }
-
-    private static string ParseEndpoint(string connectionString)
-    {
-        // Connection string format: Endpoint=https://...;AccessKey=...;Version=1.0;
-        foreach (string part in connectionString.Split(';'))
-        {
-            if (part.StartsWith("Endpoint=", StringComparison.OrdinalIgnoreCase))
-            {
-                return part["Endpoint=".Length..].TrimEnd('/');
-            }
-        }
-
-        throw new InvalidOperationException("SignalR connection string does not contain an Endpoint.");
     }
 }

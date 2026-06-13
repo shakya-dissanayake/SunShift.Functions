@@ -60,12 +60,13 @@ public class GenerateForecastsActivity(
         Dictionary<DateTime, WeatherData> weatherMap,
         DateTime slFrom,
         DateTime slTo,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Func<int, int, Task>? onDayProgress = null)
     {
         try
         {
             var dailyResults = await solarForecastService.GenerateAsync(
-                user, weatherMap, slFrom, slTo, cancellationToken);
+                user, weatherMap, slFrom, slTo, cancellationToken, onDayProgress);
 
             foreach (var (targetDateSl, totalKwh, intervals) in dailyResults)
             {
