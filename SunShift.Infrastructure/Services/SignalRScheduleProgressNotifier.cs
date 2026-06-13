@@ -42,8 +42,9 @@ public class SignalRScheduleProgressNotifier : IScheduleProgressNotifier
 
     public async Task NotifyAsync(int userId, string stage, int progressPercent, CancellationToken cancellationToken = default)
     {
-        // Azure SignalR REST: POST {endpoint}/api/v1/hubs/{hub}/users/{userId}
-        string url = $"{_endpoint}/api/v1/hubs/{HubName}/users/{userId}";
+        // Azure SignalR REST: POST {endpoint}/api/v1/hubs/{hub}/groups/{group}
+        // The hub adds each connection to a group keyed by the user's internal integer Id.
+        string url = $"{_endpoint}/api/v1/hubs/{HubName}/groups/{userId}";
 
         string payload = JsonSerializer.Serialize(new
         {
