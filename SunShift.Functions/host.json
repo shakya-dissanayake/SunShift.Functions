@@ -4,6 +4,10 @@
         "logLevel": {
             "default": "Warning",
             "SunShift": "Debug",
+            "Azure.Core": "Warning",
+            "Azure.Storage": "Warning",
+            "Azure.Data.Tables": "Warning",
+            "Host.Storage": "Warning",
             "DurableTask": "Warning",
             "Microsoft.Azure.WebJobs": "Warning",
             "Microsoft.Azure.WebJobs.Script": "Warning",
