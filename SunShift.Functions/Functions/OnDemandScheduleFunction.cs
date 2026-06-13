@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Logging;
 using SunShift.Application.Common.Interfaces.Repositories;
+using SunShift.Application.Common.Interfaces.Services;
 using SunShift.Domain.Entities;
 using SunShift.Functions.Functions.Activities;
 
@@ -15,6 +16,7 @@ namespace SunShift.Functions.Functions;
 public class OnDemandScheduleFunction(
     IUserRepository userRepository,
     GenerateSchedulesActivity generateSchedulesActivity,
+    IScheduleProgressNotifier progressNotifier,
     ILogger<OnDemandScheduleFunction> logger)
 {
     private sealed record ScheduleRequest(int UserId);
@@ -35,16 +37,20 @@ public class OnDemandScheduleFunction(
             return;
         }
 
-        logger.LogInformation(
-            "OnDemandScheduleFunction: generating schedules on demand for userId={UserId}.",
-            request.UserId);
+        int userId = request.UserId;
 
-        User? user = await userRepository.GetByIdWithWorkloadsAsync(request.UserId, cancellationToken);
+        logger.LogInformation(
+            "OnDemandScheduleFunction: generating schedules on demand for userId={UserId}.", userId);
+
+        await progressNotifier.NotifyAsync(userId, "FetchingUser", 10, cancellationToken);
+
+        User? user = await userRepository.GetByIdWithWorkloadsAsync(userId, cancellationToken);
 
         if (user is null)
         {
             logger.LogWarning(
-                "OnDemandScheduleFunction: user {UserId} not found.", request.UserId);
+                "OnDemandScheduleFunction: user {UserId} not found.", userId);
+            await progressNotifier.NotifyAsync(userId, "Failed", 0, cancellationToken);
             return;
         }
 
@@ -52,16 +58,22 @@ public class OnDemandScheduleFunction(
         {
             logger.LogInformation(
                 "OnDemandScheduleFunction: user {UserId} has no active workloads — nothing to schedule.",
-                request.UserId);
+                userId);
+            // Workloads cleared is a valid terminal state: the UI should stop waiting.
+            await progressNotifier.NotifyAsync(userId, "Ready", 100, cancellationToken);
             return;
         }
+
+        await progressNotifier.NotifyAsync(userId, "GeneratingSchedules", 50, cancellationToken);
 
         DateTime slNow = DateTime.Now;  // SL local (WEBSITE_TIME_ZONE = Sri Lanka Standard Time)
 
         await generateSchedulesActivity.GenerateForUserAsync(
             user, slNow.Date, slNow.TimeOfDay, slNow.Date.AddDays(13), cancellationToken);
 
+        await progressNotifier.NotifyAsync(userId, "Ready", 100, cancellationToken);
+
         logger.LogInformation(
-            "OnDemandScheduleFunction: completed for userId={UserId}.", request.UserId);
+            "OnDemandScheduleFunction: completed for userId={UserId}.", userId);
     }
 }

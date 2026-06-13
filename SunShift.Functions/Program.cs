@@ -65,6 +65,7 @@ namespace SunShift.Functions
                     _ = services.AddScoped<ISmartThingsIntegrationRepository, SmartThingsIntegrationRepository>();
                     _ = services.AddHttpClient<ISmartThingsClient, SmartThingsClient>();
                     _ = services.AddHttpClient<IProgressNotifier, SignalRProgressNotifier>();
+                    _ = services.AddHttpClient<IScheduleProgressNotifier, SignalRScheduleProgressNotifier>();
 
                     // Register activity classes so they can be resolved for on-demand invocations
                     _ = services.AddScoped<GenerateForecastsActivity>();

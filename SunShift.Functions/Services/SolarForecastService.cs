@@ -30,12 +30,8 @@ namespace SunShift.Functions.Services;
 /// </summary>
 public sealed class SolarForecastService : ISolarForecastService, IDisposable
 {
-    // Fixed training coordinates (Nawala substation)
-    private const double LatDeg = 6.8895;
-    private const double LonDeg = 79.8955;
-
     // Fleet average system size used during model training (kWp)
-    private const double FleetAvgKwp = 5.0;
+    private const double FleetAvgKwp = 5.5;
 
     // Isotropic sky model ground reflectance
     private const double Albedo = 0.20;
@@ -63,13 +59,17 @@ public sealed class SolarForecastService : ISolarForecastService, IDisposable
         double tiltRad = profile.TiltAngle * Math.PI / 180.0;
         double panelAzimuthDeg = profile.Azimuth;
 
+        // Solar geometry is computed at the user's own coordinates (island-wide support).
+        double userLatDeg = user.Latitude;
+        double userLonDeg = user.Longitude;
+
         var results = new List<(DateTime, double, List<ForecastInterval>)>();
 
         for (DateTime slDate = slFromDate.Date; slDate <= slToDate.Date; slDate = slDate.AddDays(1))
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var intervalSpecs = BuildIntervalSpecs(slDate, weatherBySl);
+            var intervalSpecs = BuildIntervalSpecs(slDate, weatherBySl, userLatDeg, userLonDeg);
 
             if (intervalSpecs.Count == 0)
             {
@@ -103,7 +103,9 @@ public sealed class SolarForecastService : ISolarForecastService, IDisposable
                     tiltRad,
                     panelAzimuthDeg,
                     intervalSpecs[i].Weather,
-                    intervalSpecs[i].SlLocalTime);
+                    intervalSpecs[i].SlLocalTime,
+                    userLatDeg,
+                    userLonDeg);
 
                 TimeSpan start = intervalSpecs[i].SlLocalTime.TimeOfDay;
                 TimeSpan end = start.Add(TimeSpan.FromMinutes(15));
@@ -132,7 +134,9 @@ public sealed class SolarForecastService : ISolarForecastService, IDisposable
 
     private static List<IntervalSpec> BuildIntervalSpecs(
         DateTime slDate,
-        Dictionary<DateTime, WeatherData> weatherBySl)
+        Dictionary<DateTime, WeatherData> weatherBySl,
+        double latDeg,
+        double lonDeg)
     {
         var specs = new List<IntervalSpec>(96);
 
@@ -147,7 +151,7 @@ public sealed class SolarForecastService : ISolarForecastService, IDisposable
             int month = slLocalDt.Month;
             double timeDec = slLocalDt.Hour + slLocalDt.Minute / 60.0;
 
-            double solarElev = ComputeSolarElevationDeg(doy, timeDec);
+            double solarElev = ComputeSolarElevationDeg(doy, timeDec, latDeg, lonDeg);
 
             double hourSin = Math.Sin(2 * Math.PI * timeDec / 24.0);
             double hourCos = Math.Cos(2 * Math.PI * timeDec / 24.0);
@@ -228,16 +232,18 @@ public sealed class SolarForecastService : ISolarForecastService, IDisposable
         double tiltRad,
         double panelAzimuthDeg,
         WeatherData w,
-        DateTime slLocalDt)
+        DateTime slLocalDt,
+        double latDeg,
+        double lonDeg)
     {
         double capacityFactor = baseKw / FleetAvgKwp;
 
         // POA irradiance (isotropic sky model)
         int doy = slLocalDt.DayOfYear;
         double timeDec = slLocalDt.Hour + slLocalDt.Minute / 60.0;
-        double elevDeg = ComputeSolarElevationDeg(doy, timeDec);
+        double elevDeg = ComputeSolarElevationDeg(doy, timeDec, latDeg, lonDeg);
         double elevRad = elevDeg * Math.PI / 180.0;
-        double azimuthDeg = ComputeSolarAzimuthDeg(doy, timeDec);
+        double azimuthDeg = ComputeSolarAzimuthDeg(doy, timeDec, latDeg, lonDeg);
 
         double cosAoi = Math.Sin(elevRad) * Math.Cos(tiltRad)
                       + Math.Cos(elevRad) * Math.Sin(tiltRad)
@@ -256,8 +262,8 @@ public sealed class SolarForecastService : ISolarForecastService, IDisposable
         return Math.Min(Math.Max(0.0, predicted), profile.InverterCapacityKw);
     }
 
-    // Solar geometry (Spencer 1971) 
-    private static double ComputeSolarElevationDeg(int doy, double timeDecSl)
+    // Solar geometry (Spencer 1971)
+    private static double ComputeSolarElevationDeg(int doy, double timeDecSl, double latDeg, double lonDeg)
     {
         double b = 2.0 * Math.PI * (doy - 1) / 365.0;
 
@@ -272,10 +278,10 @@ public sealed class SolarForecastService : ISolarForecastService, IDisposable
 
         // Convert SL local time to solar time using equation of time and longitude
         double utcTimeDec = timeDecSl - 5.5;
-        double solarTime = utcTimeDec + etMin / 60.0 + LonDeg / 15.0;
+        double solarTime = utcTimeDec + etMin / 60.0 + lonDeg / 15.0;
 
         double hRad = (solarTime - 12.0) * 15.0 * Math.PI / 180.0;
-        double latRad = LatDeg * Math.PI / 180.0;
+        double latRad = latDeg * Math.PI / 180.0;
 
         double sinElev = Math.Sin(latRad) * Math.Sin(decl)
                        + Math.Cos(latRad) * Math.Cos(decl) * Math.Cos(hRad);
@@ -283,7 +289,7 @@ public sealed class SolarForecastService : ISolarForecastService, IDisposable
         return Math.Asin(Math.Clamp(sinElev, -1.0, 1.0)) * 180.0 / Math.PI;
     }
 
-    private static double ComputeSolarAzimuthDeg(int doy, double timeDecSl)
+    private static double ComputeSolarAzimuthDeg(int doy, double timeDecSl, double latDeg, double lonDeg)
     {
         double b = 2.0 * Math.PI * (doy - 1) / 365.0;
 
@@ -297,9 +303,9 @@ public sealed class SolarForecastService : ISolarForecastService, IDisposable
                      - 0.014615 * Math.Cos(2 * b) - 0.040890 * Math.Sin(2 * b));
 
         double utcTimeDec = timeDecSl - 5.5;
-        double solarTime = utcTimeDec + etMin / 60.0 + LonDeg / 15.0;
+        double solarTime = utcTimeDec + etMin / 60.0 + lonDeg / 15.0;
         double hRad = (solarTime - 12.0) * 15.0 * Math.PI / 180.0;
-        double latRad = LatDeg * Math.PI / 180.0;
+        double latRad = latDeg * Math.PI / 180.0;
 
         double az = Math.Atan2(
             Math.Sin(hRad),
