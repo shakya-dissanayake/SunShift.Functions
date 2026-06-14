@@ -78,4 +78,18 @@ public class ScheduleRepository(ApplicationDbContext context) : IScheduleReposit
                      && s.Workload.IsIoTEnabled
                      && s.Workload.IoTEntityId != null)
             .ToListAsync(cancellationToken);
+
+    public Task<List<Schedule>> GetForReminderWindowAsync(
+        DateTime dateSl,
+        TimeSpan windowStart,
+        TimeSpan windowEnd,
+        CancellationToken cancellationToken = default)
+        => context.Schedules
+            .Include(s => s.Workload)
+            .Where(s => s.ScheduledDate == dateSl.Date
+                     && s.Status != "Cancelled"
+                     && s.Workload != null
+                     && ((s.StartTime >= windowStart && s.StartTime <= windowEnd)
+                         || (s.EndTime >= windowStart && s.EndTime <= windowEnd)))
+            .ToListAsync(cancellationToken);
 }

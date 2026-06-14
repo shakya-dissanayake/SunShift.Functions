@@ -8,4 +8,5 @@ public static class ConfigurationKeys
     public static readonly string SmartThingsClientSecret = "SunShift:SmartThings:ClientSecret";
     public static readonly string SmartThingsScopes = "SunShift:SmartThings:Scopes";
     public static readonly string SmartThingsTokenDek = "SunShift:SmartThings:TokenDek";
+    public static readonly string FcmServiceAccountJson = "SunShift:Firebase:ServiceAccountJson";
 }

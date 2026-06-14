@@ -21,6 +21,8 @@ public class ApplicationDbContext(
     public DbSet<Workload> Workloads => Set<Workload>();
     public DbSet<Schedule> Schedules => Set<Schedule>();
     public DbSet<SmartThingsIntegration> SmartThingsIntegrations => Set<SmartThingsIntegration>();
+    public DbSet<DeviceToken> DeviceTokens => Set<DeviceToken>();
+    public DbSet<NotificationLog> NotificationLogs => Set<NotificationLog>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -33,6 +35,8 @@ public class ApplicationDbContext(
         _ = modelBuilder.ApplyConfiguration(new WorkloadConfiguration());
         _ = modelBuilder.ApplyConfiguration(new ScheduleConfiguration());
         _ = modelBuilder.ApplyConfiguration(new SmartThingsIntegrationConfiguration());
+        _ = modelBuilder.ApplyConfiguration(new DeviceTokenConfiguration());
+        _ = modelBuilder.ApplyConfiguration(new NotificationLogConfiguration());
     }
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

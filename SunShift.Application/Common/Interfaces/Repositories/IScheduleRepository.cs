@@ -30,4 +30,15 @@ public interface IScheduleRepository
     Task<List<Schedule>> GetDueToStartAsync(DateTime dateSl, TimeSpan nowTimeSl, CancellationToken cancellationToken = default);
 
     Task<List<Schedule>> GetDueToEndAsync(DateTime dateSl, TimeSpan nowTimeSl, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Returns today's schedules (with workload) whose start or end time falls inside the reminder
+    /// window [now - grace, now + lead], so the notification scanner can decide which reminders to send.
+    /// Cancelled rows are excluded.
+    /// </summary>
+    Task<List<Schedule>> GetForReminderWindowAsync(
+        DateTime dateSl,
+        TimeSpan windowStart,
+        TimeSpan windowEnd,
+        CancellationToken cancellationToken = default);
 }

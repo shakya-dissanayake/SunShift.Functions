@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Configuration.AzureAppConfiguration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using SunShift.Application.Common.Interfaces.Repositories;
 using SunShift.Application.Common.Interfaces.Services;
 using SunShift.Functions.Functions.Activities;
@@ -66,6 +67,16 @@ namespace SunShift.Functions
                     _ = services.AddHttpClient<ISmartThingsClient, SmartThingsClient>();
                     _ = services.AddHttpClient<IProgressNotifier, SignalRProgressNotifier>();
                     _ = services.AddHttpClient<IScheduleProgressNotifier, SignalRScheduleProgressNotifier>();
+
+                    // Push notifications (FCM HTTP v1). FcmClient caches its Google access token in
+                    // instance fields, so it must be a singleton; it pulls a pooled HttpClient from
+                    // IHttpClientFactory rather than being a transient typed client.
+                    _ = services.AddHttpClient(nameof(FcmClient));
+                    _ = services.AddSingleton<IFcmClient>(sp => new FcmClient(
+                        sp.GetRequiredService<IHttpClientFactory>().CreateClient(nameof(FcmClient)),
+                        sp.GetRequiredService<IConfiguration>(),
+                        sp.GetRequiredService<ILogger<FcmClient>>()));
+                    _ = services.AddScoped<INotificationSender, NotificationSender>();
 
                     // Register activity classes so they can be resolved for on-demand invocations
                     _ = services.AddScoped<GenerateForecastsActivity>();

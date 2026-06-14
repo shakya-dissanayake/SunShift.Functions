@@ -30,5 +30,7 @@ public static class ServiceRegistration
         _ = services.AddScoped<IForecastRepository, ForecastRepository>();
         _ = services.AddScoped<IWorkloadRepository, WorkloadRepository>();
         _ = services.AddScoped<IScheduleRepository, ScheduleRepository>();
+        _ = services.AddScoped<IDeviceTokenRepository, DeviceTokenRepository>();
+        _ = services.AddScoped<INotificationLogRepository, NotificationLogRepository>();
     }
 }
