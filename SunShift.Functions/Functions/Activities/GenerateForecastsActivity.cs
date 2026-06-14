@@ -19,7 +19,7 @@ public class GenerateForecastsActivity(
     [Function(nameof(GenerateForecastsActivity))]
     public async Task RunAsync([ActivityTrigger] object? input, CancellationToken cancellationToken)
     {
-        DateTime slFrom = DateTime.Now.Date;  // SL local (WEBSITE_TIME_ZONE = Sri Lanka Standard Time)
+        DateTime slFrom = SriLankaTime.Today;
         DateTime slTo = slFrom.AddDays(13);
 
         List<User> users = await userRepository.GetAllActiveWithProfilesAsync(cancellationToken);

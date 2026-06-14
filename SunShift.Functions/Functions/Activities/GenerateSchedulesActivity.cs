@@ -1,6 +1,7 @@
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Logging;
 using SunShift.Application.Common.Interfaces.Repositories;
+using SunShift.Domain.Common;
 using SunShift.Domain.Entities;
 using SunShift.Functions.Services;
 
@@ -17,7 +18,7 @@ public class GenerateSchedulesActivity(
     [Function(nameof(GenerateSchedulesActivity))]
     public async Task RunAsync([ActivityTrigger] object? input, CancellationToken cancellationToken)
     {
-        DateTime slNow = DateTime.Now;  // SL local (WEBSITE_TIME_ZONE = Sri Lanka Standard Time)
+        DateTime slNow = SriLankaTime.Now;
         DateTime slToday = slNow.Date;
         DateTime slTo = slToday.AddDays(13);
 

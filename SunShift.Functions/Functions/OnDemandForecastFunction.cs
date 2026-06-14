@@ -55,7 +55,7 @@ public class OnDemandForecastFunction(
             return;
         }
 
-        DateTime slFrom = DateTime.Now.Date;  // SL local (WEBSITE_TIME_ZONE = Sri Lanka Standard Time)
+        DateTime slFrom = SriLankaTime.Today;
         DateTime slTo = slFrom.AddDays(13);
         int totalDays = (int)(slTo - slFrom).TotalDays + 1;
 

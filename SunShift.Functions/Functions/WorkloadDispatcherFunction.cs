@@ -2,6 +2,7 @@ using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Logging;
 using SunShift.Application.Common.Interfaces.Repositories;
 using SunShift.Application.Common.Interfaces.Services;
+using SunShift.Domain.Common;
 using SunShift.Domain.Entities;
 
 namespace SunShift.Functions.Functions;
@@ -19,7 +20,7 @@ public class WorkloadDispatcherFunction(
     [Function(nameof(WorkloadDispatcherFunction))]
     public async Task RunAsync([TimerTrigger("0 */2 * * * *")] TimerInfo timer, CancellationToken cancellationToken)
     {
-        DateTime slNow = DateTime.Now;  // SL local (WEBSITE_TIME_ZONE = Sri Lanka Standard Time)
+        DateTime slNow = SriLankaTime.Now;
         TimeSpan slNowTime = slNow.TimeOfDay;
 
         List<Schedule> toStart = await scheduleRepository.GetDueToStartAsync(slNow, slNowTime, cancellationToken);

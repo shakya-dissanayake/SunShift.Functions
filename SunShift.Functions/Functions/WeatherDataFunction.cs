@@ -11,11 +11,10 @@ namespace SunShift.Functions.Functions;
 /// </summary>
 public class DailyPipelineTrigger(ILogger<DailyPipelineTrigger> logger)
 {
-    /// <summary>Starts the orchestrator every day at midnight Sri Lanka time (00:00 SL = 18:30 UTC).
-    /// Requires WEBSITE_TIME_ZONE = Sri Lanka Standard Time on the Function App.</summary>
+    /// <summary>Starts the orchestrator every day at midnight Sri Lanka time.</summary>
     [Function("DailyPipeline_Timer")]
     public async Task TimerStartAsync(
-        [TimerTrigger("0 0 0 * * *")] TimerInfo timerInfo,
+        [TimerTrigger("0 30 18 * * *")] TimerInfo timerInfo,
         [DurableClient] DurableTaskClient client,
         CancellationToken cancellationToken)
     {

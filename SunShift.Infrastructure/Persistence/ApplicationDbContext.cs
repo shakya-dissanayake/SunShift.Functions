@@ -43,7 +43,7 @@ public class ApplicationDbContext(
 
     private void ApplyAuditInformation()
     {
-        DateTime now = DateTime.Now;  // SL local time (WEBSITE_TIME_ZONE = Sri Lanka Standard Time)
+        DateTime now = SriLankaTime.Now;
         string? currentUser = _currentUserService.UserId ?? _currentUserService.Email;
 
         foreach (EntityEntry<BaseAuditableEntity> entry in ChangeTracker.Entries<BaseAuditableEntity>())

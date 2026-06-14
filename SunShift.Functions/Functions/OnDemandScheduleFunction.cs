@@ -3,6 +3,7 @@ using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Logging;
 using SunShift.Application.Common.Interfaces.Repositories;
 using SunShift.Application.Common.Interfaces.Services;
+using SunShift.Domain.Common;
 using SunShift.Domain.Entities;
 using SunShift.Functions.Functions.Activities;
 
@@ -64,7 +65,7 @@ public class OnDemandScheduleFunction(
             return;
         }
 
-        DateTime slNow = DateTime.Now;  // SL local (WEBSITE_TIME_ZONE = Sri Lanka Standard Time)
+        DateTime slNow = SriLankaTime.Now;
 
         await generateSchedulesActivity.GenerateForUserAsync(
             user, slNow.Date, slNow.TimeOfDay, slNow.Date.AddDays(13), cancellationToken,
