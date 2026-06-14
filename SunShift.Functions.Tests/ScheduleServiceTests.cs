@@ -14,6 +14,10 @@ public class ScheduleServiceTests
     private static Workload Workload(int id, double watts, int durationHours, WorkloadPriority priority) =>
         new() { Id = id, Wattage = watts, Duration = durationHours * 60, Priority = priority };
 
+    // Variant for durations that are not whole hours (e.g. a 10-minute water heater).
+    private static Workload WorkloadMinutes(int id, double watts, int durationMinutes, WorkloadPriority priority) =>
+        new() { Id = id, Wattage = watts, Duration = durationMinutes, Priority = priority };
+
     /// <summary>
     /// Builds a forecast with a parabolic solar curve peaking at solar noon, giving a smooth
     /// rise/fall that mimics a real day. peakKw is reached at 12:00; output is 0 before
@@ -161,7 +165,47 @@ public class ScheduleServiceTests
         Assert.True(s.StartTime >= TimeSpan.FromHours(13), $"Expected afternoon window, got {s.StartTime}.");
     }
 
-    //  Cutoff (today) 
+    //  Minute-resolution durations
+
+    [Theory]
+    [InlineData(10)]   // water heater — shorter than one forecast interval
+    [InlineData(20)]   // not a multiple of 15
+    [InlineData(35)]
+    [InlineData(90)]
+    public void Duration_IsHonouredToTheMinute(int durationMinutes)
+    {
+        // The window must be exactly Duration minutes long — not rounded to a 15-min grid.
+        Forecast forecast = BellCurveForecast(peakKw: 5.0);
+        var workloads = new[]
+        {
+            WorkloadMinutes(1, watts: 1000, durationMinutes: durationMinutes, priority: WorkloadPriority.High)
+        };
+
+        IReadOnlyList<Schedule> result = _sut.ScheduleDay(workloads, forecast, SlDate, TimeSpan.Zero);
+
+        Schedule s = Assert.Single(result);
+        Assert.Equal(TimeSpan.FromMinutes(durationMinutes), s.EndTime - s.StartTime);
+    }
+
+    [Fact]
+    public void SubFifteenMinuteLoads_DoNotCollapseToTheSameSlot()
+    {
+        // Two 10-minute loads on a flat day. On the old 15-min grid both rounded to one slot and
+        // fought for the same slot; at minute resolution they get their own exact windows.
+        Forecast forecast = FlatForecast(kw: 5.0, startHour: 6, endHour: 18);
+        var workloads = new[]
+        {
+            WorkloadMinutes(1, watts: 1000, durationMinutes: 10, priority: WorkloadPriority.High),
+            WorkloadMinutes(2, watts: 1000, durationMinutes: 10, priority: WorkloadPriority.Normal),
+        };
+
+        IReadOnlyList<Schedule> result = _sut.ScheduleDay(workloads, forecast, SlDate, TimeSpan.Zero);
+
+        Assert.Equal(2, result.Count);
+        Assert.All(result, s => Assert.Equal(TimeSpan.FromMinutes(10), s.EndTime - s.StartTime));
+    }
+
+    //  Cutoff (today)
 
     [Fact]
     public void Cutoff_ExcludesSlotsBeforeNow()
@@ -177,7 +221,23 @@ public class ScheduleServiceTests
         Assert.True(s.StartTime >= cutoff, $"Scheduled before cutoff: {s.StartTime}.");
     }
 
-    //  In-progress double-book reservation 
+    [Fact]
+    public void Cutoff_AtNonGridMinute_NeverSchedulesBeforeNow()
+    {
+        // Cutoff at 14:07 (not a 15-min boundary). The window must not start before 14:07 — this
+        // is what keeps the regenerate boundary aligned with delete/preserve so today's rows are
+        // not duplicated.
+        Forecast forecast = FlatForecast(kw: 5.0, startHour: 6, endHour: 18);
+        var workloads = new[] { Workload(1, watts: 1000, durationHours: 1, priority: WorkloadPriority.High) };
+        var cutoff = new TimeSpan(14, 7, 0);
+
+        IReadOnlyList<Schedule> result = _sut.ScheduleDay(workloads, forecast, SlDate, cutoff);
+
+        Schedule s = Assert.Single(result);
+        Assert.True(s.StartTime >= cutoff, $"Scheduled before non-grid cutoff: {s.StartTime}.");
+    }
+
+    //  In-progress double-book reservation
 
     [Fact]
     public void InProgressSchedule_ReservesSolar_NoDoubleBooking()

@@ -6,8 +6,9 @@ namespace SunShift.Functions.Services;
 /// Greedy solar-first scheduling algorithm (shared-budget model).
 ///
 /// For each day:
-///   1. Build a contiguous 15-minute timeline from the cutoff to end-of-day, using the
-///      forecast's PredictedKw as the available solar capacity in each slot (missing slots = 0).
+///   1. Build a contiguous 1-minute timeline from the cutoff to end-of-day. The forecast's
+///      PredictedKw (a 15-minute interval value) is applied to every minute it covers, so the
+///      available solar capacity is known at minute resolution (missing minutes = 0).
 ///   2. Subtract solar already committed to in-progress workloads (preserved earlier today)
 ///      so capacity is never double-booked across a re-schedule.
 ///   3. Sort workloads by priority ascending (High = scheduled first).
@@ -17,14 +18,15 @@ namespace SunShift.Functions.Services;
 ///      best-effort (the grid tops up the shortfall).
 ///   5. Allocate by reducing residual capacity for the chosen window (floored at 0).
 ///
-/// Duration is in minutes; each slot = 15 min → numSlots = Duration / 15.
-/// Wattage is in watts; forecast PredictedKw is in kW → divide Wattage by 1000.
+/// Duration is in minutes and is honoured exactly: a 10-minute load gets a 10-minute window,
+/// a 90-minute load gets a 90-minute window. Wattage is in watts; forecast PredictedKw is in
+/// kW → divide Wattage by 1000.
 /// </summary>
 public class ScheduleService : IScheduleService
 {
-    private const int SlotsPerDay = 96;             // 24h × 4 slots/hour
-    private static readonly TimeSpan SlotLength = TimeSpan.FromMinutes(15);
-    private const double SlotHours = 0.25;          // 15 min in hours
+    private const int MinutesPerDay = 1440;          // 24h × 60 min
+    private const int ForecastIntervalMinutes = 15;  // forecast granularity
+    private const double SlotHours = 1.0 / 60.0;     // one minute in hours
 
     public IReadOnlyList<Schedule> ScheduleDay(
         IReadOnlyList<Workload> workloads,
@@ -36,20 +38,27 @@ public class ScheduleService : IScheduleService
         if (workloads.Count == 0)
             return Array.Empty<Schedule>();
 
-        // 1. Contiguous timeline: residual[slot] = available solar kW for that 15-min slot.
-        // Indexing by slot-of-day keeps numSlots aligned with real elapsed time, so a
+        // 1. Contiguous minute timeline: residual[minute] = available solar kW for that minute.
+        // Indexing by minute-of-day keeps numSlots aligned with real elapsed time, so a
         // scheduled window is always exactly Duration long and never stretches across gaps.
-        double[] residual = new double[SlotsPerDay];
+        double[] residual = new double[MinutesPerDay];
 
         foreach (ForecastInterval interval in forecast.Intervals)
         {
-            int slot = SlotIndex(interval.StartTime);
-            if (slot < 0 || slot >= SlotsPerDay) continue;
-            residual[slot] = Math.Max(0.0, interval.PredictedKw);
+            int start = MinuteIndex(interval.StartTime);
+            if (start < 0 || start >= MinutesPerDay) continue;
+
+            double kw = Math.Max(0.0, interval.PredictedKw);
+            // Apply the 15-minute interval's capacity to each minute it covers.
+            int end = Math.Min(start + ForecastIntervalMinutes, MinutesPerDay);
+            for (int m = start; m < end; m++)
+                residual[m] = kw;
         }
 
-        // First slot still schedulable today (slots before the cutoff are unavailable).
-        int firstSlot = Math.Clamp(SlotIndex(cutoff), 0, SlotsPerDay);
+        // First minute still schedulable today (minutes before the cutoff are unavailable).
+        // The cutoff is the exact current time — windows never start before "now", which keeps
+        // the regenerate boundary aligned with the preserve/delete boundary (no duplicate rows).
+        int firstSlot = Math.Clamp(MinuteIndex(cutoff), 0, MinutesPerDay);
 
         // 2. Subtract solar already committed to in-progress workloads preserved this run.
         if (existingSchedules is { Count: > 0 })
@@ -61,9 +70,9 @@ public class ScheduleService : IScheduleService
                 if (!wattById.TryGetValue(existing.WorkloadId, out double committedKw))
                     continue; // wattage unknown (workload not in this set) — can't account for it
 
-                int start = SlotIndex(existing.StartTime);
-                int end = SlotIndex(existing.EndTime);
-                for (int s = start; s < end && s < SlotsPerDay; s++)
+                int start = MinuteIndex(existing.StartTime);
+                int end = MinuteIndex(existing.EndTime);
+                for (int s = start; s < end && s < MinutesPerDay; s++)
                 {
                     if (s < 0) continue;
                     residual[s] = Math.Max(0.0, residual[s] - committedKw);
@@ -75,14 +84,14 @@ public class ScheduleService : IScheduleService
 
         foreach (Workload workload in workloads.OrderBy(w => (int)w.Priority))
         {
-            // Duration is in minutes; each slot is 15 minutes.
-            int numSlots = Math.Max(1, workload.Duration / 15);
+            // Duration is in minutes; each slot is one minute, so it maps 1:1.
+            int numSlots = Math.Max(1, workload.Duration);
             double wKw = workload.Wattage / 1000.0;
 
             // Energy the workload needs over its whole run (kWh).
             double demandKwh = wKw * numSlots * SlotHours;
 
-            int lastStart = SlotsPerDay - numSlots;
+            int lastStart = MinutesPerDay - numSlots;
             if (lastStart < firstSlot)
                 continue; // duration longer than the remaining part of the day
 
@@ -139,16 +148,16 @@ public class ScheduleService : IScheduleService
         return schedules;
     }
 
-    // Helpers 
-    private static int SlotIndex(TimeSpan timeOfDay) =>
-        (int)(timeOfDay.TotalMinutes / 15.0);
+    // Helpers
+    private static int MinuteIndex(TimeSpan timeOfDay) =>
+        (int)timeOfDay.TotalMinutes;
 
-    private static TimeSpan SlotStart(int slot)
+    private static TimeSpan SlotStart(int minute)
     {
         // numSlots can push the end exactly to 24:00 — clamp to end-of-day.
-        if (slot >= SlotsPerDay)
+        if (minute >= MinutesPerDay)
             return TimeSpan.FromTicks(TimeSpan.TicksPerDay - 1);
-        return TimeSpan.FromTicks(slot * SlotLength.Ticks);
+        return TimeSpan.FromMinutes(minute);
     }
 
     private static double SumEnergy(double[] residual, int start, int count)

@@ -44,6 +44,9 @@ public class GenerateSchedulesActivity(
         logger.LogInformation("GenerateSchedulesActivity: completed.");
     }
 
+    private static TimeSpan FloorToMinute(TimeSpan t) =>
+        TimeSpan.FromMinutes(Math.Floor(t.TotalMinutes));
+
     public async Task GenerateForUserAsync(
         User user,
         DateTime slFrom,
@@ -54,6 +57,8 @@ public class GenerateSchedulesActivity(
     {
         try
         {
+            slNowTime = FloorToMinute(slNowTime);
+
             List<int> workloadIds = user.Workloads.Select(w => w.Id).ToList();
 
             // Hard-delete future schedules while preserving any past/ongoing slots for today.
@@ -63,6 +68,14 @@ public class GenerateSchedulesActivity(
             // when we re-schedule the remainder of the day.
             List<Schedule> inProgressToday = await scheduleRepository.GetInProgressTodayAsync(
                 workloadIds, slFrom, slNowTime, cancellationToken);
+
+            HashSet<int> lockedTodayWorkloadIds = inProgressToday
+                .Select(s => s.WorkloadId)
+                .ToHashSet();
+
+            IReadOnlyList<Workload> workloadsForToday = lockedTodayWorkloadIds.Count == 0
+                ? user.Workloads
+                : user.Workloads.Where(w => !lockedTodayWorkloadIds.Contains(w.Id)).ToList();
 
             var allSchedules = new List<Schedule>();
             int daysWithForecast = 0;
@@ -74,9 +87,13 @@ public class GenerateSchedulesActivity(
 
             for (DateTime date = slFrom; date <= slTo; date = date.AddDays(1))
             {
-                // For today, skip slots that have already started.
-                TimeSpan cutoff = date == slFrom ? slNowTime : TimeSpan.Zero;
-                IReadOnlyList<Schedule>? existing = date == slFrom ? inProgressToday : null;
+                bool isToday = date == slFrom;
+
+                // For today, skip slots that have already started, exclude workloads already
+                // running/executed today, and reserve their solar so we don't double-book it.
+                TimeSpan cutoff = isToday ? slNowTime : TimeSpan.Zero;
+                IReadOnlyList<Schedule>? existing = isToday ? inProgressToday : null;
+                IReadOnlyList<Workload> dayWorkloads = isToday ? workloadsForToday : user.Workloads;
 
                 Forecast? forecast = await forecastRepository.GetByUserAndDateAsync(
                     user.Id, date, cancellationToken);
@@ -86,7 +103,7 @@ public class GenerateSchedulesActivity(
                     daysWithForecast++;
 
                     IReadOnlyList<Schedule> daySchedules =
-                        scheduleService.ScheduleDay(user.Workloads, forecast, date, cutoff, existing);
+                        scheduleService.ScheduleDay(dayWorkloads, forecast, date, cutoff, existing);
 
                     allSchedules.AddRange(daySchedules);
                 }
