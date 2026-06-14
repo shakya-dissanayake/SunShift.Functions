@@ -39,14 +39,40 @@ public class SignalRScheduleProgressNotifier : IScheduleProgressNotifier
         });
     }
 
-    public async Task NotifyAsync(int userId, string stage, int progressPercent, CancellationToken cancellationToken = default)
+    public Task NotifyAsync(int userId, string stage, int progressPercent, CancellationToken cancellationToken = default)
+    {
+        object argument = new { stage, progressPercent };
+        return SendToGroupAsync(userId, "ScheduleProgress", argument,
+            $"progress (stage={stage})", cancellationToken);
+    }
+
+    public Task NotifyDeviceStatusAsync(
+        int userId,
+        int scheduleId,
+        int workloadId,
+        string deviceId,
+        string status,
+        string scheduleStatus,
+        CancellationToken cancellationToken = default)
+    {
+        object argument = new { scheduleId, workloadId, deviceId, status, scheduleStatus };
+        return SendToGroupAsync(userId, "DeviceStatus", argument,
+            $"device status (scheduleId={scheduleId}, status={status})", cancellationToken);
+    }
+
+    private async Task SendToGroupAsync(
+        int userId,
+        string target,
+        object argument,
+        string description,
+        CancellationToken cancellationToken)
     {
         string url = $"{_endpoint}/api/v1/hubs/{HubName}/groups/{userId}";
 
         string payload = JsonSerializer.Serialize(new
         {
-            target = "ScheduleProgress",
-            arguments = new object[] { new { stage, progressPercent } }
+            target,
+            arguments = new[] { argument }
         });
 
         AccessToken token = await _credential.GetTokenAsync(
@@ -65,8 +91,8 @@ public class SignalRScheduleProgressNotifier : IScheduleProgressNotifier
         {
             string body = await resp.Content.ReadAsStringAsync(cancellationToken);
             _logger.LogWarning(
-                "SignalRScheduleProgressNotifier: failed to send progress (userId={UserId}, stage={Stage}). Status={Status}, Body={Body}",
-                userId, stage, (int)resp.StatusCode, body);
+                "SignalRScheduleProgressNotifier: failed to send {Description} to userId={UserId}. Status={Status}, Body={Body}",
+                description, userId, (int)resp.StatusCode, body);
         }
     }
 }

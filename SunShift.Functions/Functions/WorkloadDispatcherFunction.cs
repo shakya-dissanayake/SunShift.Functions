@@ -12,6 +12,7 @@ public class WorkloadDispatcherFunction(
     ISmartThingsIntegrationRepository integrationRepository,
     ISmartThingsClient smartThingsClient,
     ITokenProtector tokenProtector,
+    IScheduleProgressNotifier progressNotifier,
     IUnitOfWork unitOfWork,
     ILogger<WorkloadDispatcherFunction> logger)
 {
@@ -86,6 +87,24 @@ public class WorkloadDispatcherFunction(
                 logger.LogInformation(
                     "WorkloadDispatcherFunction: sent '{Command}' to device {DeviceId} for schedule {ScheduleId}.",
                     command, deviceId, schedule.Id);
+
+                try
+                {
+                    await progressNotifier.NotifyDeviceStatusAsync(
+                        userId,
+                        schedule.Id,
+                        schedule.WorkloadId,
+                        deviceId,
+                        command,        // "on" / "off"
+                        nextStatus,     // "Started" / "Completed"
+                        cancellationToken);
+                }
+                catch (Exception notifyEx)
+                {
+                    logger.LogWarning(notifyEx,
+                        "WorkloadDispatcherFunction: failed to push live device status for schedule {ScheduleId}.",
+                        schedule.Id);
+                }
             }
             catch (Exception ex)
             {
